@@ -1,18 +1,24 @@
-import {Page, EmptyState} from '@shopify/polaris';
-import React, {useEffect, useState} from 'react';
-import {ResourcePicker} from '@shopify/app-bridge-react';
-import Select from '../app-selection/Select';
+import React, { useState, useCallback } from 'react';
+import { ResourcePicker } from '@shopify/app-bridge-react';
+import SelectWidget from '../app-selection/SelectWidget';
 import SelectedProducts from '../app-selection/SelectedProducts';
 
-function Home() {
+
+export const AppContext = React.createContext();
+
+export default function Home() {
 	const [isOpen, setIsOpen] = useState(false);
 	const [products, setProducts] = useState([]);
 
-	const handleSelection = (payload) => {
+	const handleSelection = useCallback((payload) => {
 		setIsOpen(false)
-		console.log(payload);
 		setProducts(payload.selection);
-	}
+	});
+
+	const appContextValue = {
+		setProducts,
+		setIsOpen
+	};
 
 	return (
 		<>
@@ -23,15 +29,13 @@ function Home() {
 				onSelection={handleSelection}
 			/>
 
-
-			{
-				products.length > 0 ?
-					(<SelectedProducts selectedProducts={products} emptyProducts={setProducts}/>)
-					:
-					(<Select setIsOpen={setIsOpen}/>)
-			}
+			<AppContext.Provider value={ appContextValue }>
+				{products.length > 0 ? (
+					<SelectedProducts selectedProducts={products}/>
+				) : (
+					<SelectWidget/>
+				)}
+			</AppContext.Provider>
 		</>
 	)
 }
-
-export default Home;

@@ -1,41 +1,85 @@
-import React, {useCallback, useState} from 'react'
-import {Button, Form, FormLayout, TextField} from "@shopify/polaris";
-import {gql, useQuery} from "@apollo/client";
+import React, { useCallback, useState, useEffect } from 'react'
+import { Button, Form, FormLayout, TextField } from "@shopify/polaris";
+import { gql, useLazyQuery } from "@apollo/client";
+import csvExport from "../../utilities/export-to-csv";
 
-function SelectForm() {
-	// const getProducts = () => {
-	// 	const GET_PRODUCTS = gql`{
-	// 	products(first: 10) {
-	// 		edges {
-	// 			node {
-	// 				id
-	// 				title
-	// 				description
-	// 			}
-	// 		}
-	// 	}
-	// }
-	// `
-	// 	const {loading, data} = useQuery(GET_PRODUCTS);
-	// 	//if (loading) return <Spinner size="large"/>
-	// 	console.log(loading)
-	// 	console.log(data)
-	// }
-	//
-	// getProducts()
+/*********************************************************************
+**********************************************************************
+HOW TO PROPERLY MAKE A REQUEST ON CLICK
+https://www.apollographql.com/docs/react/data/queries/#refetching
+OR
+https://www.apollographql.com/docs/react/api/react/hooks/#uselazyquery
+***********************************************************************
+***********************************************************************/
 
 
+let GET_PRODUCTS = gql`		
+query ($products: Int!) {
+	products(first: $products) {
+	  edges {
+		node {
+		  id
+		  title
+		  description
+		  totalInventory
+		  vendor
+		  priceRangeV2 {
+			minVariantPrice {
+			  amount
+			}
+		  }
+		}
+	  }
+	}
+  }
+`
 
-	const [number, setNumber] = useState('');
+export default function SelectForm() {
 
-	const handleNumberChange = useCallback( async (value) => {
-		setNumber(value);
-		console.log(number);
+	const [number, setNumber] = useState(1);
+	const [requestVariables, setRequestVariables] = useState({ variables: { products: 1 } });
+
+	const [requestInProgress, setRequestInProgess] = useState(false);
+	const [getProducts] = useLazyQuery(GET_PRODUCTS, requestVariables);
+
+
+	useEffect(() => {
+		setRequestVariables({ variables: { products: Number(number) } });
+	}, [number])
+
+	const handleNumberChange = useCallback((value) => {
+		 setNumber(Number(value));
 	}, []);
 
-	const handleSubmit = useCallback((event) => {
-		event.preventDefault();
-		console.log(number);
+
+	const exportToCsv = useCallback((data) => {
+		if (data) {
+			const csvHeadings = ['id', 'name', 'total inventory', 'vendor', 'price'];
+			const exportDataRows = data.edges.map(item => {
+
+				return [
+					item.node.id,
+					item.node.title,
+					item.node.totalInventory.toString(),
+					item.node.vendor,
+					item.node.priceRangeV2.minVariantPrice.amount
+				]
+			})
+
+			exportDataRows.unshift(csvHeadings);
+			console.log(exportDataRows);
+			csvExport(exportDataRows);
+		}
+	});
+
+	const handleSubmit = useCallback(async () => {
+	    setRequestInProgess(true);
+		const products = (await getProducts()).data.products;
+	    setRequestInProgess(false);
+		
+		if(!requestInProgress) {
+			exportToCsv(products);
+		}
 	}, []);
 
 	return (
@@ -43,13 +87,14 @@ function SelectForm() {
 			<FormLayout>
 
 				<TextField
-					value={number}
+					value={number.toString()}
 					onChange={handleNumberChange}
 					type="number"
+					min={ 1 }
 					autoComplete=""
 					label="Export first N product"
 					helpText={
-						<span>Enter a value {number}</span>
+						number ? <span>Do you want to export the following number of products: {number} ?</span> : null
 					}
 				/>
 
@@ -58,5 +103,3 @@ function SelectForm() {
 		</Form>
 	)
 }
-
-export default SelectForm;
